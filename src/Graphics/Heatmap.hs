@@ -1,12 +1,10 @@
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 module Graphics.Heatmap where
 
-import           Codec.Picture          (Image (..), PixelRGB8 (..), PixelRGBA8 (..), generateImage)
+import           Codec.Picture          (Image (..), PixelRGBA8 (..), generateImage)
 import           Control.Lens
 import qualified Data.Map.Strict        as Map
 import           Graphics.Heatmap.Types (Colorizer, Depth (..))
