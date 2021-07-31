@@ -31,5 +31,5 @@ schemeColorizer = f . V.fromList
   where f v (Depth d) = PixelRGBA8 r g b d
           where
             percent = fromIntegral d / 255.0
-            offset = fromIntegral (V.length v) - 1 * 1.0 - percent
+            offset = (fromIntegral (V.length v) - 1) * (1.0 - percent)
             (PixelRGBA8 r g b _) = v V.! round offset
