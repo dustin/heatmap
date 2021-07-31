@@ -66,4 +66,5 @@ tests:
     - HUnit
     - tasty
     - tasty-hunit
-    - tasty-quickcheck
+    - hedgehog
+    - tasty-hedgehog

@@ -1,60 +1,68 @@
 import           Codec.Picture            (PixelRGBA8 (..))
+import           Control.Applicative      (liftA2)
 import           Control.Lens             hiding (elements)
 import           Data.Foldable            (fold)
+import           Hedgehog
+import qualified Hedgehog.Gen             as Gen
+import qualified Hedgehog.Range           as Range
 import           Linear.V2
 import           Numeric.Natural
 import           Test.Tasty
-import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck    as QC
+import           Test.Tasty.Hedgehog
 
 import           Graphics.Heatmap
 import           Graphics.Heatmap.Schemes
 import           Graphics.Heatmap.Types
 
-instance Arbitrary Depth where arbitrary = Depth <$> arbitrary
+genDepth :: Gen Depth
+genDepth = Gen.enumBounded
 
-propDepthDoesNotDecrease :: Depth -> Depth -> Property
-propDepthDoesNotDecrease d1 d2 = counterexample ("got: " <> show dsum) $ dsum >= d1 && dsum >= d2
-  where dsum = d1 <> d2
+propDepthDoesNotDecrease :: Property
+propDepthDoesNotDecrease = property $ do
+  (d1,d2) <- forAll $ liftA2 (,) genDepth genDepth
+  let dsum = d1 <> d2
+  annotateShow dsum
+  assert $ dsum >= d1 && dsum >= d2
 
 data SrcRange = SrcRange (V2 Double, V2 Double) (V2 Double)
   deriving (Show, Eq)
 
-instance Arbitrary SrcRange where
-  arbitrary = do
-    x <- arbitrary
-    y <- arbitrary
-    xo <- choose (x, x + 100.0)
-    yo <- choose (y, y + 100.0)
-    xh <- choose (xo, xo + 100.0)
-    yh <- choose (yo, yo + 100.0)
+genSrcRange :: Gen SrcRange
+genSrcRange = do
+    x  <- Gen.double $ Range.linearFrac (-10000) 10000
+    y  <- Gen.double $ Range.linearFrac (-10000) 10000
+    xo <- Gen.double $ Range.linearFrac x (x + 100)
+    yo <- Gen.double $ Range.linearFrac y (y + 100)
+    xh <- Gen.filter (> x) . Gen.double $ Range.linearFrac xo (xo + 100)
+    yh <- Gen.filter (> y) . Gen.double $ Range.linearFrac yo (yo + 100)
 
     pure $ SrcRange (V2 x y, V2 xh yh) (V2 xo yo)
 
 newtype DstRange = DstRange (V2 Natural, V2 Natural) deriving (Eq, Show)
 
-instance Arbitrary DstRange where
-  arbitrary = do
-    x <- getNonNegative <$> arbitrary
-    y <- getNonNegative <$> arbitrary
-    xh <- chooseInt (x, x + 1000)
-    yh <- chooseInt (y, y + 1000)
+genDstRange :: Gen DstRange
+genDstRange = do
+    x <- Gen.integral $ Range.linear 0 1000
+    y <- Gen.integral $ Range.linear 0 1000
+    xh <- Gen.integral $ Range.linear (x+1) (x + 1000)
+    yh <- Gen.integral $ Range.linear (y+1) (y + 1000)
 
     pure . DstRange $ (V2 x y, V2 xh yh) & each . each %~ toEnum
 
-propTranslatesIntoBounds :: SrcRange -> DstRange -> Property
-propTranslatesIntoBounds (SrcRange src p) (DstRange dst) =
-  counterexample (fold [
-                     "src low:  ", show (fst src), "\n",
-                     "src high: ", show (snd src), "\n",
-                     "dst low:  ", show (fst dst), "\n",
-                     "dst high: ", show (snd dst), "\n",
-                     "checked:  ", show p, "\n",
-                     "got ", show got]) $
-  x `within` (dst ^? _1 . _x, dst ^? _2 . _x) &&
-  y `within` (dst ^? _1 . _y, dst ^? _2 . _y)
+propTranslatesIntoBounds :: Property
+propTranslatesIntoBounds = property $ do
+  (SrcRange src p, DstRange dst) <- forAll $ liftA2 (,) genSrcRange genDstRange
+  let got@(V2 x y) = mkTranslator src dst p
+  annotate (fold [
+               "src low:  ", show (fst src), "\n",
+               "src high: ", show (snd src), "\n",
+               "dst low:  ", show (fst dst), "\n",
+               "dst high: ", show (snd dst), "\n",
+               "checked:  ", show p, "\n",
+               "got ", show got])
+  assert $ x `within` (dst ^? _1 . _x, dst ^? _2 . _x) && y `within` (dst ^? _1 . _y, dst ^? _2 . _y)
+
   where
-    got@(V2 x y) = mkTranslator src dst p
     infix 4 >=?, <=?
     _ >=? Nothing = False
     x >=? Just x' = x >= x'
@@ -62,22 +70,18 @@ propTranslatesIntoBounds (SrcRange src p) (DstRange dst) =
     x <=? Just x' = x <= x'
     within x (l, h) = x >=? l && x <=? h
 
-newtype AScheme = AScheme (String, ColorScheme) deriving Eq
+propSchemesColorize :: Property
+propSchemesColorize = property $ do
+  ((_,sch), d) <- forAll $ liftA2 (,) (Gen.element allSchemes) Gen.enumBounded
+  _ <- pure $ seq (schemeColorizer sch d) ()
+  success
 
-instance Show AScheme where
-  show (AScheme (n,l)) = "AScheme (" <> show n <> ", " <> show (length l) <> ")"
-
-instance Arbitrary AScheme where
-  arbitrary = AScheme <$> elements allSchemes
-
-propSchemesColorize :: AScheme -> Depth -> Bool
-propSchemesColorize (AScheme (_,sch)) d = seq (schemeColorizer sch d) True
 
 tests :: [TestTree]
 tests = [
-    testProperty "depth doesn't get smaller" propDepthDoesNotDecrease,
-    localOption (QC.QuickCheckTests 5000) $ testProperty "translator is within bounds" propTranslatesIntoBounds,
-    localOption (QC.QuickCheckTests 5000) $ testProperty "schemes colorize" propSchemesColorize
+  testProperty "depth doesn't get smaller" propDepthDoesNotDecrease,
+  localOption (HedgehogTestLimit (Just 5000)) $ testProperty "translator is within bounds" propTranslatesIntoBounds,
+  localOption (HedgehogTestLimit (Just 5000)) $ testProperty "schemes colorize" propSchemesColorize
     ]
 
 main :: IO ()
