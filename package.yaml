@@ -26,10 +26,12 @@ dependencies:
 - vector
 - linear
 - lens
-- HaXml
+- xml
 - template-haskell
 - directory
 - filepath
+- zip
+- bytestring
 
 library:
   source-dirs: src
