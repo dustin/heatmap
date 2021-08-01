@@ -1,6 +1,7 @@
 import           Codec.Picture            (PixelRGBA8 (..))
 import           Control.Applicative      (liftA2)
 import           Control.Lens             hiding (elements)
+import           Control.Monad            (void)
 import           Data.Foldable            (fold)
 import           Hedgehog
 import qualified Hedgehog.Gen             as Gen
@@ -73,9 +74,7 @@ propTranslatesIntoBounds = property $ do
 propSchemesColorize :: Property
 propSchemesColorize = property $ do
   ((_,sch), d) <- forAll $ liftA2 (,) (Gen.element allSchemes) Gen.enumBounded
-  _ <- pure $ seq (schemeColorizer sch d) ()
-  success
-
+  void . eval $ schemeColorizer sch d
 
 tests :: [TestTree]
 tests = [
