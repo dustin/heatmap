@@ -1,0 +1,259 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-|
+Module      : Graphics.Heatmap.SchemeGen
+Description : Generate heatmaps from PNGs using TemplateHaskell.
+Copyright   : (c) Dustin Sallings, 2021
+License     : BSD3
+Maintainer  : dustin@spy.net
+Stability   : experimental
+
+Generate heatmaps from PNGs using TemplateHaskell.
+-}</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Graphics.Heatmap.SchemeGen</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.SchemeGen.html#genScheme"><span class="hs-identifier">genScheme</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.SchemeGen.html#genSchemes"><span class="hs-identifier">genSchemes</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Codec.Picture</span></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Image</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PixelRGBA8</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">convertRGBA8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">imageHeight</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">pixelAt</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readImage</span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadIO</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>             </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mapMaybe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Language.Haskell.TH</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">System.Directory</span></span><span>       </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">listDirectory</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">System.FilePath.Posix</span></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">splitExtension</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(&lt;/&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- | Generate a color scheme from a PNG on the filesystem.</span><span>
+</span><span id="line-22"></span><span class="annot"><a href="Graphics.Heatmap.SchemeGen.html#genScheme"><span class="hs-identifier hs-type">genScheme</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Q</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Dec</span></span><span class="hs-special">]</span><span>
+</span><span id="line-23"></span><span id="genScheme"><span class="annot"><span class="annottext">genScheme :: String -&gt; String -&gt; Q [Dec]
+</span><a href="Graphics.Heatmap.SchemeGen.html#genScheme"><span class="hs-identifier hs-var hs-var">genScheme</span></a></span></span><span> </span><span id="local-6989586621679365721"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365721"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679365720"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365720"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO [Dec] -&gt; Q [Dec]
+forall a. IO a -&gt; Q a
+</span><span class="hs-identifier hs-var">runIO</span></span><span> </span><span class="annot"><span class="annottext">(IO [Dec] -&gt; Q [Dec]) -&gt; IO [Dec] -&gt; Q [Dec]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-24"></span><span>  </span><span id="local-6989586621679365718"><span class="annot"><span class="annottext">Either String (Image PixelRGBA8)
+</span><a href="#local-6989586621679365718"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(DynamicImage -&gt; Image PixelRGBA8)
+-&gt; Either String DynamicImage -&gt; Either String (Image PixelRGBA8)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">DynamicImage -&gt; Image PixelRGBA8
+</span><span class="hs-identifier hs-var">convertRGBA8</span></span><span> </span><span class="annot"><span class="annottext">(Either String DynamicImage -&gt; Either String (Image PixelRGBA8))
+-&gt; IO (Either String DynamicImage)
+-&gt; IO (Either String (Image PixelRGBA8))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (Either String DynamicImage)
+</span><span class="hs-identifier hs-var">readImage</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365720"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span id="local-6989586621679365716"><span class="annot"><span class="annottext">Image PixelRGBA8
+</span><a href="#local-6989586621679365716"><span class="hs-identifier hs-var">img</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either String (Image PixelRGBA8)
+</span><a href="#local-6989586621679365718"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-26"></span><span>           </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621679365715"><span class="annot"><span class="annottext">Image PixelRGBA8
+</span><a href="#local-6989586621679365715"><span class="hs-identifier hs-var">img</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Image PixelRGBA8 -&gt; IO (Image PixelRGBA8)
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">Image PixelRGBA8
+</span><a href="#local-6989586621679365715"><span class="hs-identifier hs-var">img</span></a></span><span>
+</span><span id="line-27"></span><span>           </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621679365714"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365714"><span class="hs-identifier hs-var">x</span></a></span></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (Image PixelRGBA8)
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><span class="hs-identifier hs-var">fail</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;error loading image &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365720"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365714"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679365713"><span class="annot"><span class="annottext">pixies :: [PixelRGBA8]
+</span><a href="#local-6989586621679365713"><span class="hs-identifier hs-var hs-var">pixies</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; PixelRGBA8) -&gt; [Int] -&gt; [PixelRGBA8]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Image PixelRGBA8 -&gt; Int -&gt; Int -&gt; PixelRGBA8
+forall a. Pixel a =&gt; Image a -&gt; Int -&gt; Int -&gt; a
+</span><span class="hs-identifier hs-var">pixelAt</span></span><span> </span><span class="annot"><span class="annottext">Image PixelRGBA8
+</span><a href="#local-6989586621679365716"><span class="hs-identifier hs-var">img</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Image PixelRGBA8 -&gt; Int
+forall a. Image a -&gt; Int
+</span><span class="hs-identifier hs-var hs-var">imageHeight</span></span><span> </span><span class="annot"><span class="annottext">Image PixelRGBA8
+</span><a href="#local-6989586621679365716"><span class="hs-identifier hs-var">img</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span class="hs-special">]</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="annottext">[Dec] -&gt; IO [Dec]
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Name -&gt; Type -&gt; Dec
+</span><span class="hs-identifier hs-var">SigD</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365721"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Type
+</span><span class="hs-identifier hs-var">ConT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;ColorScheme&quot;</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>        </span><span class="annot"><span class="annottext">Pat -&gt; Body -&gt; [Dec] -&gt; Dec
+</span><span class="hs-identifier hs-var">ValD</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Pat
+</span><span class="hs-identifier hs-var">VarP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365721"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Exp -&gt; Body
+</span><span class="hs-identifier hs-var">NormalB</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Exp] -&gt; Exp
+</span><span class="hs-identifier hs-var">ListE</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Exp -&gt; Exp -&gt; Exp
+</span><span class="hs-identifier hs-var">AppE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Exp -&gt; Exp -&gt; Exp
+</span><span class="hs-identifier hs-var">AppE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Exp -&gt; Exp -&gt; Exp
+</span><span class="hs-identifier hs-var">AppE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Exp -&gt; Exp -&gt; Exp
+</span><span class="hs-identifier hs-var">AppE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Exp
+</span><span class="hs-identifier hs-var">ConE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;PixelRGBA8&quot;</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>                                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lit -&gt; Exp
+</span><span class="hs-identifier hs-var">LitE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Lit
+</span><span class="hs-identifier hs-var">IntegerL</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Pixel8 -&gt; Integer
+forall a. Integral a =&gt; a -&gt; Integer
+</span><span class="hs-identifier hs-var">toInteger</span></span><span> </span><span class="annot"><span class="annottext">Pixel8
+</span><a href="#local-6989586621679365702"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>                                  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lit -&gt; Exp
+</span><span class="hs-identifier hs-var">LitE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Lit
+</span><span class="hs-identifier hs-var">IntegerL</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Pixel8 -&gt; Integer
+forall a. Integral a =&gt; a -&gt; Integer
+</span><span class="hs-identifier hs-var">toInteger</span></span><span> </span><span class="annot"><span class="annottext">Pixel8
+</span><a href="#local-6989586621679365701"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>                              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lit -&gt; Exp
+</span><span class="hs-identifier hs-var">LitE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Lit
+</span><span class="hs-identifier hs-var">IntegerL</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Pixel8 -&gt; Integer
+forall a. Integral a =&gt; a -&gt; Integer
+</span><span class="hs-identifier hs-var">toInteger</span></span><span> </span><span class="annot"><span class="annottext">Pixel8
+</span><a href="#local-6989586621679365700"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>                          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lit -&gt; Exp
+</span><span class="hs-identifier hs-var">LitE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Lit
+</span><span class="hs-identifier hs-var">IntegerL</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Pixel8 -&gt; Integer
+forall a. Integral a =&gt; a -&gt; Integer
+</span><span class="hs-identifier hs-var">toInteger</span></span><span> </span><span class="annot"><span class="annottext">Pixel8
+</span><a href="#local-6989586621679365699"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>                        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PixelRGBA8</span></span><span> </span><span id="local-6989586621679365702"><span class="annot"><span class="annottext">Pixel8
+</span><a href="#local-6989586621679365702"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span id="local-6989586621679365701"><span class="annot"><span class="annottext">Pixel8
+</span><a href="#local-6989586621679365701"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679365700"><span class="annot"><span class="annottext">Pixel8
+</span><a href="#local-6989586621679365700"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span id="local-6989586621679365699"><span class="annot"><span class="annottext">Pixel8
+</span><a href="#local-6989586621679365699"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[PixelRGBA8]
+</span><a href="#local-6989586621679365713"><span class="hs-identifier hs-var">pixies</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">]</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="annot"><a href="Graphics.Heatmap.SchemeGen.html#findSchemes"><span class="hs-identifier hs-type">findSchemes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-39"></span><span id="findSchemes"><span class="annot"><span class="annottext">findSchemes :: String -&gt; IO [(String, String)]
+</span><a href="Graphics.Heatmap.SchemeGen.html#findSchemes"><span class="hs-identifier hs-var hs-var">findSchemes</span></a></span></span><span> </span><span id="local-6989586621679365696"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365696"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(String -&gt; Maybe (String, String))
+-&gt; [String] -&gt; [(String, String)]
+forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe (String, String)
+</span><a href="#local-6989586621679365695"><span class="hs-identifier hs-var">identify</span></a></span><span> </span><span class="annot"><span class="annottext">([String] -&gt; [(String, String)])
+-&gt; IO [String] -&gt; IO [(String, String)]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; IO [String]
+</span><span class="hs-identifier hs-var">listDirectory</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365696"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679365695"><span class="annot"><span class="annottext">identify :: String -&gt; Maybe (String, String)
+</span><a href="#local-6989586621679365695"><span class="hs-identifier hs-var hs-var">identify</span></a></span></span><span> </span><span id="local-6989586621679365694"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365694"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">String -&gt; (String, String)
+</span><span class="hs-identifier hs-var">splitExtension</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365694"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-42"></span><span>                         </span><span class="hs-special">(</span><span id="local-6989586621679365693"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365693"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;.png&quot;</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(String, String) -&gt; Maybe (String, String)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365693"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365696"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span class="hs-operator hs-var">&lt;/&gt;</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365694"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>                         </span><span class="annot"><span class="annottext">(String, String)
+</span><span class="hs-identifier">_</span></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (String, String)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span id="local-6989586621679365736"><span id="local-6989586621679365737"><span id="local-6989586621679365738"><span class="annot"><a href="Graphics.Heatmap.SchemeGen.html#cmapM"><span class="hs-identifier hs-type">cmapM</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679365738"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679365737"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679365736"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679365737"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679365738"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679365736"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679365737"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679365738"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-46"></span><span id="cmapM"><span class="annot"><span class="annottext">cmapM :: (a -&gt; f b) -&gt; [a] -&gt; f b
+</span><a href="Graphics.Heatmap.SchemeGen.html#cmapM"><span class="hs-identifier hs-var hs-var">cmapM</span></a></span></span><span> </span><span id="local-6989586621679365691"><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679365691"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679365690"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679365690"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[b] -&gt; b
+forall a. Monoid a =&gt; [a] -&gt; a
+</span><span class="hs-identifier hs-var">mconcat</span></span><span> </span><span class="annot"><span class="annottext">([b] -&gt; b) -&gt; f [b] -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; f b) -&gt; [a] -&gt; f [b]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679365691"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679365690"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- | Generate color schemes for all PNGs found within a given directory.</span><span>
+</span><span id="line-49"></span><span class="hs-comment">--</span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- Each scheme is named after the basename of the png that's found.</span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- Additionally, a list of all the generated schemes named</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- 'allSchemes' will be generated.</span><span>
+</span><span id="line-53"></span><span class="annot"><a href="Graphics.Heatmap.SchemeGen.html#genSchemes"><span class="hs-identifier hs-type">genSchemes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Q</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Dec</span></span><span class="hs-special">]</span><span>
+</span><span id="line-54"></span><span id="genSchemes"><span class="annot"><span class="annottext">genSchemes :: String -&gt; Q [Dec]
+</span><a href="Graphics.Heatmap.SchemeGen.html#genSchemes"><span class="hs-identifier hs-var hs-var">genSchemes</span></a></span></span><span> </span><span id="local-6989586621679365688"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365688"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-55"></span><span>  </span><span id="local-6989586621679365687"><span class="annot"><span class="annottext">[(String, String)]
+</span><a href="#local-6989586621679365687"><span class="hs-identifier hs-var">schemeFiles</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO [(String, String)] -&gt; Q [(String, String)]
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO [(String, String)]
+</span><a href="Graphics.Heatmap.SchemeGen.html#findSchemes"><span class="hs-identifier hs-var">findSchemes</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365688"><span class="hs-identifier hs-var">fp</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>  </span><span id="local-6989586621679365685"><span class="annot"><span class="annottext">[Dec]
+</span><a href="#local-6989586621679365685"><span class="hs-identifier hs-var">defs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">((String, String) -&gt; Q [Dec]) -&gt; [(String, String)] -&gt; Q [Dec]
+forall b (f :: * -&gt; *) a.
+(Monoid b, Applicative f) =&gt;
+(a -&gt; f b) -&gt; [a] -&gt; f b
+</span><a href="Graphics.Heatmap.SchemeGen.html#cmapM"><span class="hs-identifier hs-var">cmapM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(String -&gt; String -&gt; Q [Dec]) -&gt; (String, String) -&gt; Q [Dec]
+forall a b c. (a -&gt; b -&gt; c) -&gt; (a, b) -&gt; c
+</span><span class="hs-identifier hs-var">uncurry</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; Q [Dec]
+</span><a href="Graphics.Heatmap.SchemeGen.html#genScheme"><span class="hs-identifier hs-var">genScheme</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(String, String)]
+</span><a href="#local-6989586621679365687"><span class="hs-identifier hs-var">schemeFiles</span></a></span><span>
+</span><span id="line-57"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679365683"><span class="annot"><span class="annottext">allName :: Name
+</span><a href="#local-6989586621679365683"><span class="hs-identifier hs-var hs-var">allName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;allSchemes&quot;</span></span><span>
+</span><span id="line-58"></span><span>      </span><span id="local-6989586621679365682"><span class="annot"><span class="annottext">ss :: [Dec]
+</span><a href="#local-6989586621679365682"><span class="hs-identifier hs-var hs-var">ss</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Name -&gt; Type -&gt; Dec
+</span><span class="hs-identifier hs-var">SigD</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679365683"><span class="hs-identifier hs-var">allName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Type -&gt; Type -&gt; Type
+</span><span class="hs-identifier hs-var">AppT</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><span class="hs-identifier hs-var">ListT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Type -&gt; Type -&gt; Type
+</span><span class="hs-identifier hs-var">AppT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Type -&gt; Type -&gt; Type
+</span><span class="hs-identifier hs-var">AppT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Type
+</span><span class="hs-identifier hs-var">TupleT</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">2</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Type
+</span><span class="hs-identifier hs-var">ConT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;String&quot;</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>                                      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Type
+</span><span class="hs-identifier hs-var">ConT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;ColorScheme&quot;</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-60"></span><span>            </span><span class="annot"><span class="annottext">Pat -&gt; Body -&gt; [Dec] -&gt; Dec
+</span><span class="hs-identifier hs-var">ValD</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Pat
+</span><span class="hs-identifier hs-var">VarP</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679365683"><span class="hs-identifier hs-var">allName</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Exp -&gt; Body
+</span><span class="hs-identifier hs-var">NormalB</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Exp] -&gt; Exp
+</span><span class="hs-identifier hs-var">ListE</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[Maybe Exp] -&gt; Exp
+</span><span class="hs-identifier hs-var">TupE</span></span><span> </span><span class="hs-special">[</span><span>
+</span><span id="line-61"></span><span>                                                    </span><span class="annot"><span class="annottext">Exp -&gt; Maybe Exp
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lit -&gt; Exp
+</span><span class="hs-identifier hs-var">LitE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Lit
+</span><span class="hs-identifier hs-var">StringL</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365676"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Exp -&gt; Maybe Exp
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Exp
+</span><span class="hs-identifier hs-var">VarE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Name
+</span><span class="hs-identifier hs-var">mkName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365676"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-62"></span><span>                                                    </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679365676"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365676"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">,</span><span class="annot"><span class="annottext">String
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(String, String)]
+</span><a href="#local-6989586621679365687"><span class="hs-identifier hs-var">schemeFiles</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">]</span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><span class="annottext">[Dec] -&gt; Q [Dec]
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Dec]
+</span><a href="#local-6989586621679365685"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">[Dec] -&gt; [Dec] -&gt; [Dec]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Dec]
+</span><a href="#local-6989586621679365682"><span class="hs-identifier hs-var">ss</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span></pre></body></html>

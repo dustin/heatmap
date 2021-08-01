@@ -1,0 +1,329 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications           #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-comment">{-|
+Module      : Graphics.Heatmap.Types
+Description : Heatmap types.
+Copyright   : (c) Dustin Sallings, 2021
+License     : BSD3
+Maintainer  : dustin@spy.net
+Stability   : experimental
+
+Heatmap types.
+-}</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Graphics.Heatmap.Types</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.Types.html#Colorizer"><span class="hs-identifier">Colorizer</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#ColorScheme"><span class="hs-identifier">ColorScheme</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier">Depth</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#alphaColorizer"><span class="hs-identifier">alphaColorizer</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#schemeColorizer"><span class="hs-identifier">schemeColorizer</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Codec.Picture</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">PixelRGB8</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PixelRGBA8</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span>   </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span>     </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- | A Colorizer produces a pixel for a given depth.</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">type</span><span> </span><span id="Colorizer"><span class="annot"><a href="Graphics.Heatmap.Types.html#Colorizer"><span class="hs-identifier hs-var">Colorizer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-type">Depth</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PixelRGBA8</span></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- | A ColorScheme is a collection of pixels that Depths can map to.</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">type</span><span> </span><span id="ColorScheme"><span class="annot"><a href="Graphics.Heatmap.Types.html#ColorScheme"><span class="hs-identifier hs-var">ColorScheme</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">PixelRGBA8</span></span><span class="hs-special">]</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- | Depth represents how warm a particular spot is.</span><span>
+</span><span id="line-28"></span><span class="hs-comment">--</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- Depths as a semigroup may be added together, but can never have a</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- value larger than 'maxBound'.</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">newtype</span><span> </span><span id="Depth"><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-var">Depth</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Depth"><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-var">Depth</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679365908"><span id="local-6989586621679365910"><span class="annot"><span class="annottext">Depth -&gt; Depth -&gt; Bool
+(Depth -&gt; Depth -&gt; Bool) -&gt; (Depth -&gt; Depth -&gt; Bool) -&gt; Eq Depth
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Depth -&gt; Depth -&gt; Bool
+$c/= :: Depth -&gt; Depth -&gt; Bool
+== :: Depth -&gt; Depth -&gt; Bool
+$c== :: Depth -&gt; Depth -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679365901"><span id="local-6989586621679365903"><span id="local-6989586621679365905"><span class="annot"><span class="annottext">Int -&gt; Depth -&gt; ShowS
+[Depth] -&gt; ShowS
+Depth -&gt; String
+(Int -&gt; Depth -&gt; ShowS)
+-&gt; (Depth -&gt; String) -&gt; ([Depth] -&gt; ShowS) -&gt; Show Depth
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Depth] -&gt; ShowS
+$cshowList :: [Depth] -&gt; ShowS
+show :: Depth -&gt; String
+$cshow :: Depth -&gt; String
+showsPrec :: Int -&gt; Depth -&gt; ShowS
+$cshowsPrec :: Int -&gt; Depth -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679365886"><span id="local-6989586621679365888"><span id="local-6989586621679365890"><span id="local-6989586621679365892"><span id="local-6989586621679365894"><span id="local-6989586621679365896"><span id="local-6989586621679365898"><span class="annot"><span class="annottext">Integer -&gt; Depth
+Depth -&gt; Depth
+Depth -&gt; Depth -&gt; Depth
+(Depth -&gt; Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth)
+-&gt; (Integer -&gt; Depth)
+-&gt; Num Depth
+forall a.
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Integer -&gt; a)
+-&gt; Num a
+fromInteger :: Integer -&gt; Depth
+$cfromInteger :: Integer -&gt; Depth
+signum :: Depth -&gt; Depth
+$csignum :: Depth -&gt; Depth
+abs :: Depth -&gt; Depth
+$cabs :: Depth -&gt; Depth
+negate :: Depth -&gt; Depth
+$cnegate :: Depth -&gt; Depth
+* :: Depth -&gt; Depth -&gt; Depth
+$c* :: Depth -&gt; Depth -&gt; Depth
+- :: Depth -&gt; Depth -&gt; Depth
+$c- :: Depth -&gt; Depth -&gt; Depth
++ :: Depth -&gt; Depth -&gt; Depth
+$c+ :: Depth -&gt; Depth -&gt; Depth
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679365870"><span id="local-6989586621679365872"><span id="local-6989586621679365874"><span id="local-6989586621679365876"><span id="local-6989586621679365878"><span id="local-6989586621679365880"><span id="local-6989586621679365882"><span class="annot"><span class="annottext">Eq Depth
+Eq Depth
+-&gt; (Depth -&gt; Depth -&gt; Ordering)
+-&gt; (Depth -&gt; Depth -&gt; Bool)
+-&gt; (Depth -&gt; Depth -&gt; Bool)
+-&gt; (Depth -&gt; Depth -&gt; Bool)
+-&gt; (Depth -&gt; Depth -&gt; Bool)
+-&gt; (Depth -&gt; Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth -&gt; Depth)
+-&gt; Ord Depth
+Depth -&gt; Depth -&gt; Bool
+Depth -&gt; Depth -&gt; Ordering
+Depth -&gt; Depth -&gt; Depth
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: Depth -&gt; Depth -&gt; Depth
+$cmin :: Depth -&gt; Depth -&gt; Depth
+max :: Depth -&gt; Depth -&gt; Depth
+$cmax :: Depth -&gt; Depth -&gt; Depth
+&gt;= :: Depth -&gt; Depth -&gt; Bool
+$c&gt;= :: Depth -&gt; Depth -&gt; Bool
+&gt; :: Depth -&gt; Depth -&gt; Bool
+$c&gt; :: Depth -&gt; Depth -&gt; Bool
+&lt;= :: Depth -&gt; Depth -&gt; Bool
+$c&lt;= :: Depth -&gt; Depth -&gt; Bool
+&lt; :: Depth -&gt; Depth -&gt; Bool
+$c&lt; :: Depth -&gt; Depth -&gt; Bool
+compare :: Depth -&gt; Depth -&gt; Ordering
+$ccompare :: Depth -&gt; Depth -&gt; Ordering
+$cp1Ord :: Eq Depth
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679365853"><span id="local-6989586621679365855"><span id="local-6989586621679365857"><span id="local-6989586621679365859"><span id="local-6989586621679365861"><span id="local-6989586621679365863"><span id="local-6989586621679365865"><span id="local-6989586621679365867"><span class="annot"><span class="annottext">Int -&gt; Depth
+Depth -&gt; Int
+Depth -&gt; [Depth]
+Depth -&gt; Depth
+Depth -&gt; Depth -&gt; [Depth]
+Depth -&gt; Depth -&gt; Depth -&gt; [Depth]
+(Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth)
+-&gt; (Int -&gt; Depth)
+-&gt; (Depth -&gt; Int)
+-&gt; (Depth -&gt; [Depth])
+-&gt; (Depth -&gt; Depth -&gt; [Depth])
+-&gt; (Depth -&gt; Depth -&gt; [Depth])
+-&gt; (Depth -&gt; Depth -&gt; Depth -&gt; [Depth])
+-&gt; Enum Depth
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+enumFromThenTo :: Depth -&gt; Depth -&gt; Depth -&gt; [Depth]
+$cenumFromThenTo :: Depth -&gt; Depth -&gt; Depth -&gt; [Depth]
+enumFromTo :: Depth -&gt; Depth -&gt; [Depth]
+$cenumFromTo :: Depth -&gt; Depth -&gt; [Depth]
+enumFromThen :: Depth -&gt; Depth -&gt; [Depth]
+$cenumFromThen :: Depth -&gt; Depth -&gt; [Depth]
+enumFrom :: Depth -&gt; [Depth]
+$cenumFrom :: Depth -&gt; [Depth]
+fromEnum :: Depth -&gt; Int
+$cfromEnum :: Depth -&gt; Int
+toEnum :: Int -&gt; Depth
+$ctoEnum :: Int -&gt; Depth
+pred :: Depth -&gt; Depth
+$cpred :: Depth -&gt; Depth
+succ :: Depth -&gt; Depth
+$csucc :: Depth -&gt; Depth
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679365848"><span class="annot"><span class="annottext">Num Depth
+Ord Depth
+Num Depth -&gt; Ord Depth -&gt; (Depth -&gt; Rational) -&gt; Real Depth
+Depth -&gt; Rational
+forall a. Num a -&gt; Ord a -&gt; (a -&gt; Rational) -&gt; Real a
+toRational :: Depth -&gt; Rational
+$ctoRational :: Depth -&gt; Rational
+$cp2Real :: Ord Depth
+$cp1Real :: Num Depth
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679365831"><span id="local-6989586621679365833"><span id="local-6989586621679365835"><span id="local-6989586621679365837"><span id="local-6989586621679365839"><span id="local-6989586621679365841"><span id="local-6989586621679365843"><span class="annot"><span class="annottext">Enum Depth
+Real Depth
+Real Depth
+-&gt; Enum Depth
+-&gt; (Depth -&gt; Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth -&gt; Depth)
+-&gt; (Depth -&gt; Depth -&gt; (Depth, Depth))
+-&gt; (Depth -&gt; Depth -&gt; (Depth, Depth))
+-&gt; (Depth -&gt; Integer)
+-&gt; Integral Depth
+Depth -&gt; Integer
+Depth -&gt; Depth -&gt; (Depth, Depth)
+Depth -&gt; Depth -&gt; Depth
+forall a.
+Real a
+-&gt; Enum a
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; Integer)
+-&gt; Integral a
+toInteger :: Depth -&gt; Integer
+$ctoInteger :: Depth -&gt; Integer
+divMod :: Depth -&gt; Depth -&gt; (Depth, Depth)
+$cdivMod :: Depth -&gt; Depth -&gt; (Depth, Depth)
+quotRem :: Depth -&gt; Depth -&gt; (Depth, Depth)
+$cquotRem :: Depth -&gt; Depth -&gt; (Depth, Depth)
+mod :: Depth -&gt; Depth -&gt; Depth
+$cmod :: Depth -&gt; Depth -&gt; Depth
+div :: Depth -&gt; Depth -&gt; Depth
+$cdiv :: Depth -&gt; Depth -&gt; Depth
+rem :: Depth -&gt; Depth -&gt; Depth
+$crem :: Depth -&gt; Depth -&gt; Depth
+quot :: Depth -&gt; Depth -&gt; Depth
+$cquot :: Depth -&gt; Depth -&gt; Depth
+$cp2Integral :: Enum Depth
+$cp1Integral :: Real Depth
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Integral</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679365826"><span id="local-6989586621679365828"><span class="annot"><span class="annottext">Depth
+Depth -&gt; Depth -&gt; Bounded Depth
+forall a. a -&gt; a -&gt; Bounded a
+maxBound :: Depth
+$cmaxBound :: Depth
+minBound :: Depth
+$cminBound :: Depth
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Bounded</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679365820"><span id="local-6989586621679365822"><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-type">Depth</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-type">Depth</span></a></span><span> </span><span id="local-6989586621679365818"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365818"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679365817"><span class="annot"><span class="annottext">&lt;&gt; :: Depth -&gt; Depth -&gt; Depth
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;&gt;</span></span></span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-type">Depth</span></a></span><span> </span><span id="local-6989586621679365816"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365816"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Depth
+</span><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-var">Depth</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365815"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-35"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-36"></span><span>      </span><span id="local-6989586621679365815"><span class="annot"><span class="annottext">x :: Word8
+</span><a href="#local-6989586621679365815"><span class="hs-identifier hs-var hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365818"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365816"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bounded Word8 =&gt; Word8
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">maxBound</span></span><span> </span><span class="hs-glyph">@</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Word8
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">maxBound</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365818"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Word8 -&gt; Word8
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365816"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679365805"><span id="local-6989586621679365807"><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-type">Depth</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-39"></span><span>  </span><span id="local-6989586621679365803"><span class="annot"><span class="annottext">mempty :: Depth
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">mempty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Depth
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- | Simple colorizer that uses a constant color and applies different alpha values.</span><span>
+</span><span id="line-42"></span><span class="annot"><a href="Graphics.Heatmap.Types.html#alphaColorizer"><span class="hs-identifier hs-type">alphaColorizer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PixelRGB8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Colorizer"><span class="hs-identifier hs-type">Colorizer</span></a></span><span>
+</span><span id="line-43"></span><span id="alphaColorizer"><span class="annot"><span class="annottext">alphaColorizer :: PixelRGB8 -&gt; Colorizer
+</span><a href="Graphics.Heatmap.Types.html#alphaColorizer"><span class="hs-identifier hs-var hs-var">alphaColorizer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PixelRGB8</span></span><span> </span><span id="local-6989586621679365801"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365801"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span id="local-6989586621679365800"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365800"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679365799"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365799"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-type">Depth</span></a></span><span> </span><span id="local-6989586621679365798"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365798"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Word8 -&gt; Word8 -&gt; Word8 -&gt; PixelRGBA8
+</span><span class="hs-identifier hs-var">PixelRGBA8</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365801"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365800"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365799"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365798"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | Colorizer that applies a ColorScheme along with the depth.</span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Graphics.Heatmap.Types.html#schemeColorizer"><span class="hs-identifier hs-type">schemeColorizer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#ColorScheme"><span class="hs-identifier hs-type">ColorScheme</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Colorizer"><span class="hs-identifier hs-type">Colorizer</span></a></span><span>
+</span><span id="line-47"></span><span id="schemeColorizer"><span class="annot"><span class="annottext">schemeColorizer :: ColorScheme -&gt; Colorizer
+</span><a href="Graphics.Heatmap.Types.html#schemeColorizer"><span class="hs-identifier hs-var hs-var">schemeColorizer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector PixelRGBA8 -&gt; Colorizer
+</span><a href="#local-6989586621679365796"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Vector PixelRGBA8 -&gt; Colorizer)
+-&gt; (ColorScheme -&gt; Vector PixelRGBA8) -&gt; ColorScheme -&gt; Colorizer
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ColorScheme -&gt; Vector PixelRGBA8
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679365796"><span class="annot"><span class="annottext">f :: Vector PixelRGBA8 -&gt; Colorizer
+</span><a href="#local-6989586621679365796"><span class="hs-identifier hs-var hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679365793"><span class="annot"><span class="annottext">Vector PixelRGBA8
+</span><a href="#local-6989586621679365793"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-type">Depth</span></a></span><span> </span><span id="local-6989586621679365792"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365792"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Word8 -&gt; Word8 -&gt; Word8 -&gt; PixelRGBA8
+</span><span class="hs-identifier hs-var">PixelRGBA8</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365791"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365790"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365789"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365792"><span class="hs-identifier hs-var">d</span></a></span><span>
+</span><span id="line-49"></span><span>          </span><span class="hs-keyword">where</span><span>
+</span><span id="line-50"></span><span>            </span><span id="local-6989586621679365788"><span class="annot"><span class="annottext">percent :: Double
+</span><a href="#local-6989586621679365788"><span class="hs-identifier hs-var hs-var">percent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Double
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365792"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">255.0</span></span><span>
+</span><span id="line-51"></span><span>            </span><span id="local-6989586621679365786"><span class="annot"><span class="annottext">offset :: Double
+</span><a href="#local-6989586621679365786"><span class="hs-identifier hs-var hs-var">offset</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Double
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector PixelRGBA8 -&gt; Int
+forall a. Vector a -&gt; Int
+</span><span class="hs-identifier hs-var">V.length</span></span><span> </span><span class="annot"><span class="annottext">Vector PixelRGBA8
+</span><a href="#local-6989586621679365793"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1.0</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365788"><span class="hs-identifier hs-var">percent</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PixelRGBA8</span></span><span> </span><span id="local-6989586621679365791"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365791"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span id="local-6989586621679365790"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365790"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679365789"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679365789"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector PixelRGBA8
+</span><a href="#local-6989586621679365793"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Vector PixelRGBA8 -&gt; Int -&gt; PixelRGBA8
+forall a. Vector a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">V.!</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Int
+forall a b. (RealFrac a, Integral b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">round</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365786"><span class="hs-identifier hs-var">offset</span></a></span><span>
+</span><span id="line-53"></span></pre></body></html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-|
+Module      : Graphics.Heatmap.KML
+Description : Heatmap KML Utilities.
+Copyright   : (c) Dustin Sallings, 2021
+License     : BSD3
+Maintainer  : dustin@spy.net
+Stability   : experimental
+
+Heatmap KML utilities.
+-}</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Graphics.Heatmap.KML</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.KML.html#GeoBounds"><span class="hs-identifier">GeoBounds</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.KML.html#kmlStr"><span class="hs-identifier">kmlStr</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.KML.html#mkKMZ"><span class="hs-identifier">mkKMZ</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Codec.Archive.Zip</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Codec.Picture</span></span><span>         </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Image</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PixelRGBA8</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">encodePng</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BC</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Lazy</span></span><span>  </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BL</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Numeric</span></span><span>               </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">showFloat</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Text.XML.Light</span></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- | Boundaries for displaying overlays.</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">data</span><span> </span><span id="GeoBounds"><span class="annot"><a href="Graphics.Heatmap.KML.html#GeoBounds"><span class="hs-identifier hs-var">GeoBounds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="GeoBounds"><span class="annot"><a href="Graphics.Heatmap.KML.html#GeoBounds"><span class="hs-identifier hs-var">GeoBounds</span></a></span></span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-23"></span><span>  </span><span id="north"><span class="annot"><span class="annottext">GeoBounds -&gt; Double
+</span><a href="Graphics.Heatmap.KML.html#north"><span class="hs-identifier hs-var hs-var">north</span></a></span></span><span class="hs-special">,</span><span> </span><span id="south"><span class="annot"><span class="annottext">GeoBounds -&gt; Double
+</span><a href="Graphics.Heatmap.KML.html#south"><span class="hs-identifier hs-var hs-var">south</span></a></span></span><span class="hs-special">,</span><span> </span><span id="east"><span class="annot"><span class="annottext">GeoBounds -&gt; Double
+</span><a href="Graphics.Heatmap.KML.html#east"><span class="hs-identifier hs-var hs-var">east</span></a></span></span><span class="hs-special">,</span><span> </span><span id="west"><span class="annot"><span class="annottext">GeoBounds -&gt; Double
+</span><a href="Graphics.Heatmap.KML.html#west"><span class="hs-identifier hs-var hs-var">west</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Double</span></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679365624"><span id="local-6989586621679365626"><span id="local-6989586621679365628"><span class="annot"><span class="annottext">Int -&gt; GeoBounds -&gt; ShowS
+[GeoBounds] -&gt; ShowS
+GeoBounds -&gt; String
+(Int -&gt; GeoBounds -&gt; ShowS)
+-&gt; (GeoBounds -&gt; String)
+-&gt; ([GeoBounds] -&gt; ShowS)
+-&gt; Show GeoBounds
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [GeoBounds] -&gt; ShowS
+$cshowList :: [GeoBounds] -&gt; ShowS
+show :: GeoBounds -&gt; String
+$cshow :: GeoBounds -&gt; String
+showsPrec :: Int -&gt; GeoBounds -&gt; ShowS
+$cshowsPrec :: Int -&gt; GeoBounds -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- | Produce a KML document overlaying the document at the given URL across the given geo boundaries.</span><span>
+</span><span id="line-27"></span><span class="annot"><a href="Graphics.Heatmap.KML.html#kmlStr"><span class="hs-identifier hs-type">kmlStr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Heatmap.KML.html#GeoBounds"><span class="hs-identifier hs-type">GeoBounds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-28"></span><span id="kmlStr"><span class="annot"><span class="annottext">kmlStr :: String -&gt; GeoBounds -&gt; String
+</span><a href="Graphics.Heatmap.KML.html#kmlStr"><span class="hs-identifier hs-var hs-var">kmlStr</span></a></span></span><span> </span><span id="local-6989586621679365622"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365622"><span class="hs-identifier hs-var">iconPath</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.KML.html#GeoBounds"><span class="hs-identifier hs-type">GeoBounds</span></a></span><span> </span><span id="local-6989586621679365621"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365621"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679365620"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365620"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679365619"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365619"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span id="local-6989586621679365618"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365618"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Element -&gt; String
+</span><span class="hs-identifier hs-var">showTopElement</span></span><span> </span><span class="annot"><span class="annottext">Element
+</span><a href="#local-6989586621679365616"><span class="hs-identifier hs-var">kml</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>    </span><span id="local-6989586621679365615"><span class="annot"><span class="annottext">elc :: String -&gt; [Attr] -&gt; [Content] -&gt; Element
+</span><a href="#local-6989586621679365615"><span class="hs-identifier hs-var hs-var">elc</span></a></span></span><span> </span><span id="local-6989586621679365614"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365614"><span class="hs-identifier hs-var">nm</span></a></span></span><span> </span><span id="local-6989586621679365613"><span class="annot"><span class="annottext">[Attr]
+</span><a href="#local-6989586621679365613"><span class="hs-identifier hs-var">atts</span></a></span></span><span> </span><span id="local-6989586621679365612"><span class="annot"><span class="annottext">[Content]
+</span><a href="#local-6989586621679365612"><span class="hs-identifier hs-var">stuff</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">QName -&gt; [Attr] -&gt; [Content] -&gt; Maybe Line -&gt; Element
+</span><span class="hs-identifier hs-var">Element</span></span><span> </span><span class="annot"><span class="annottext">QName
+</span><span class="hs-identifier hs-var">blank_name</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">qName :: String
+</span><span class="hs-identifier hs-var">qName</span></span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365614"><span class="hs-identifier hs-var">nm</span></a></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">[Attr]
+</span><a href="#local-6989586621679365613"><span class="hs-identifier hs-var">atts</span></a></span><span> </span><span class="annot"><span class="annottext">[Content]
+</span><a href="#local-6989586621679365612"><span class="hs-identifier hs-var">stuff</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Line
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-31"></span><span>    </span><span id="local-6989586621679365608"><span class="annot"><span class="annottext">elr :: String -&gt; [Attr] -&gt; [Element] -&gt; Element
+</span><a href="#local-6989586621679365608"><span class="hs-identifier hs-var hs-var">elr</span></a></span></span><span> </span><span id="local-6989586621679365607"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365607"><span class="hs-identifier hs-var">nm</span></a></span></span><span> </span><span id="local-6989586621679365606"><span class="annot"><span class="annottext">[Attr]
+</span><a href="#local-6989586621679365606"><span class="hs-identifier hs-var">atts</span></a></span></span><span> </span><span id="local-6989586621679365605"><span class="annot"><span class="annottext">[Element]
+</span><a href="#local-6989586621679365605"><span class="hs-identifier hs-var">stuff</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Attr] -&gt; [Content] -&gt; Element
+</span><a href="#local-6989586621679365615"><span class="hs-identifier hs-var">elc</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365607"><span class="hs-identifier hs-var">nm</span></a></span><span> </span><span class="annot"><span class="annottext">[Attr]
+</span><a href="#local-6989586621679365606"><span class="hs-identifier hs-var">atts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Element -&gt; Content
+</span><span class="hs-identifier hs-var">Elem</span></span><span> </span><span class="annot"><span class="annottext">(Element -&gt; Content) -&gt; [Element] -&gt; [Content]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Element]
+</span><a href="#local-6989586621679365605"><span class="hs-identifier hs-var">stuff</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>    </span><span id="local-6989586621679365602"><span class="annot"><span class="annottext">elt :: String -&gt; String -&gt; Element
+</span><a href="#local-6989586621679365602"><span class="hs-identifier hs-var hs-var">elt</span></a></span></span><span> </span><span id="local-6989586621679365601"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365601"><span class="hs-identifier hs-var">nm</span></a></span></span><span> </span><span id="local-6989586621679365600"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365600"><span class="hs-identifier hs-var">stuff</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Attr] -&gt; [Content] -&gt; Element
+</span><a href="#local-6989586621679365615"><span class="hs-identifier hs-var">elc</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365601"><span class="hs-identifier hs-var">nm</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String -&gt; Content
+</span><a href="#local-6989586621679365599"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365600"><span class="hs-identifier hs-var">stuff</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-33"></span><span>    </span><span id="local-6989586621679365598"><span class="annot"><span class="annottext">at :: String -&gt; String -&gt; Attr
+</span><a href="#local-6989586621679365598"><span class="hs-identifier hs-var hs-var">at</span></a></span></span><span> </span><span id="local-6989586621679365597"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365597"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679365596"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365596"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">QName -&gt; String -&gt; Attr
+</span><span class="hs-identifier hs-var">Attr</span></span><span> </span><span class="annot"><span class="annottext">QName
+</span><span class="hs-identifier hs-var">blank_name</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">qName :: String
+</span><span class="hs-identifier hs-var">qName</span></span><span class="hs-glyph">=</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365597"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365596"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-34"></span><span>    </span><span id="local-6989586621679365599"><span class="annot"><span class="annottext">t :: String -&gt; Content
+</span><a href="#local-6989586621679365599"><span class="hs-identifier hs-var hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679365594"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365594"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CData -&gt; Content
+</span><span class="hs-identifier hs-var">Text</span></span><span> </span><span class="annot"><span class="annottext">CData
+</span><span class="hs-identifier hs-var">blank_cdata</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">cdData :: String
+</span><span class="hs-identifier hs-var">cdData</span></span><span class="hs-glyph">=</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365594"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span>    </span><span id="local-6989586621679365616"><span class="annot"><span class="annottext">kml :: Element
+</span><a href="#local-6989586621679365616"><span class="hs-identifier hs-var hs-var">kml</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Attr] -&gt; [Element] -&gt; Element
+</span><a href="#local-6989586621679365608"><span class="hs-identifier hs-var">elr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;kml&quot;</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String -&gt; String -&gt; Attr
+</span><a href="#local-6989586621679365598"><span class="hs-identifier hs-var">at</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;xmlns&quot;</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;http://www.opengis.net/kml/2.2&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Element
+</span><a href="#local-6989586621679365590"><span class="hs-identifier hs-var">folder</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-37"></span><span>    </span><span id="local-6989586621679365590"><span class="annot"><span class="annottext">folder :: Element
+</span><a href="#local-6989586621679365590"><span class="hs-identifier hs-var hs-var">folder</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Attr] -&gt; [Element] -&gt; Element
+</span><a href="#local-6989586621679365608"><span class="hs-identifier hs-var">elr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Folder&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Element
+</span><a href="#local-6989586621679365589"><span class="hs-identifier hs-var">groundo</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-38"></span><span>    </span><span id="local-6989586621679365589"><span class="annot"><span class="annottext">groundo :: Element
+</span><a href="#local-6989586621679365589"><span class="hs-identifier hs-var hs-var">groundo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Attr] -&gt; [Element] -&gt; Element
+</span><a href="#local-6989586621679365608"><span class="hs-identifier hs-var">elr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;GroundOverlay&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Element
+</span><a href="#local-6989586621679365588"><span class="hs-identifier hs-var">icon</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Element
+</span><a href="#local-6989586621679365587"><span class="hs-identifier hs-var">box</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-39"></span><span>    </span><span id="local-6989586621679365588"><span class="annot"><span class="annottext">icon :: Element
+</span><a href="#local-6989586621679365588"><span class="hs-identifier hs-var hs-var">icon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Attr] -&gt; [Element] -&gt; Element
+</span><a href="#local-6989586621679365608"><span class="hs-identifier hs-var">elr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Icon&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String -&gt; String -&gt; Element
+</span><a href="#local-6989586621679365602"><span class="hs-identifier hs-var">elt</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;href&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365622"><span class="hs-identifier hs-var">iconPath</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-40"></span><span>    </span><span id="local-6989586621679365587"><span class="annot"><span class="annottext">box :: Element
+</span><a href="#local-6989586621679365587"><span class="hs-identifier hs-var hs-var">box</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Attr] -&gt; [Element] -&gt; Element
+</span><a href="#local-6989586621679365608"><span class="hs-identifier hs-var">elr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;LatLonBox&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String -&gt; Double -&gt; Element
+forall a. RealFloat a =&gt; String -&gt; a -&gt; Element
+</span><a href="#local-6989586621679365586"><span class="hs-identifier hs-var">ll</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;north&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365621"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String -&gt; Double -&gt; Element
+forall a. RealFloat a =&gt; String -&gt; a -&gt; Element
+</span><a href="#local-6989586621679365586"><span class="hs-identifier hs-var">ll</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;south&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365620"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String -&gt; Double -&gt; Element
+forall a. RealFloat a =&gt; String -&gt; a -&gt; Element
+</span><a href="#local-6989586621679365586"><span class="hs-identifier hs-var">ll</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;east&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365619"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String -&gt; Double -&gt; Element
+forall a. RealFloat a =&gt; String -&gt; a -&gt; Element
+</span><a href="#local-6989586621679365586"><span class="hs-identifier hs-var">ll</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;west&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365618"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>                              </span><span class="annot"><span class="annottext">String -&gt; String -&gt; Element
+</span><a href="#local-6989586621679365602"><span class="hs-identifier hs-var">elt</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;rotation&quot;</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;0&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-42"></span><span>    </span><span id="local-6989586621679365586"><span class="annot"><span class="annottext">ll :: String -&gt; a -&gt; Element
+</span><a href="#local-6989586621679365586"><span class="hs-identifier hs-var hs-var">ll</span></a></span></span><span> </span><span id="local-6989586621679365585"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365585"><span class="hs-identifier hs-var">nm</span></a></span></span><span> </span><span id="local-6989586621679365584"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365584"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; Element
+</span><a href="#local-6989586621679365602"><span class="hs-identifier hs-var">elt</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365585"><span class="hs-identifier hs-var">nm</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; ShowS
+forall a. RealFloat a =&gt; a -&gt; ShowS
+</span><span class="hs-identifier hs-var">showFloat</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365584"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- | Generate and store a KMZ file with the given image ampped into the given bounds.</span><span>
+</span><span id="line-45"></span><span class="annot"><a href="Graphics.Heatmap.KML.html#mkKMZ"><span class="hs-identifier hs-type">mkKMZ</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Image</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PixelRGBA8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Heatmap.KML.html#GeoBounds"><span class="hs-identifier hs-type">GeoBounds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span id="mkKMZ"><span class="annot"><span class="annottext">mkKMZ :: Image PixelRGBA8 -&gt; GeoBounds -&gt; String -&gt; IO ()
+</span><a href="Graphics.Heatmap.KML.html#mkKMZ"><span class="hs-identifier hs-var hs-var">mkKMZ</span></a></span></span><span> </span><span id="local-6989586621679365582"><span class="annot"><span class="annottext">Image PixelRGBA8
+</span><a href="#local-6989586621679365582"><span class="hs-identifier hs-var">img</span></a></span></span><span> </span><span id="local-6989586621679365581"><span class="annot"><span class="annottext">GeoBounds
+</span><a href="#local-6989586621679365581"><span class="hs-identifier hs-var">bounds</span></a></span></span><span> </span><span id="local-6989586621679365580"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365580"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; ZipArchive () -&gt; IO ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; String -&gt; ZipArchive a -&gt; m a
+</span><span class="hs-identifier hs-var">createArchive</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679365580"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">(ZipArchive () -&gt; IO ()) -&gt; ZipArchive () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><span class="annottext">CompressionMethod -&gt; ByteString -&gt; EntrySelector -&gt; ZipArchive ()
+</span><span class="hs-identifier hs-var">addEntry</span></span><span> </span><span class="annot"><span class="annottext">CompressionMethod
+</span><span class="hs-identifier hs-var">Store</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">BL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Image PixelRGBA8 -&gt; ByteString
+forall a. PngSavable a =&gt; Image a -&gt; ByteString
+</span><span class="hs-identifier hs-var">encodePng</span></span><span> </span><span class="annot"><span class="annottext">Image PixelRGBA8
+</span><a href="#local-6989586621679365582"><span class="hs-identifier hs-var">img</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(EntrySelector -&gt; ZipArchive ())
+-&gt; ZipArchive EntrySelector -&gt; ZipArchive ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ZipArchive EntrySelector
+forall (m :: * -&gt; *). MonadThrow m =&gt; String -&gt; m EntrySelector
+</span><span class="hs-identifier hs-var">mkEntrySelector</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;heatmap.png&quot;</span></span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><span class="annottext">CompressionMethod -&gt; ByteString -&gt; EntrySelector -&gt; ZipArchive ()
+</span><span class="hs-identifier hs-var">addEntry</span></span><span> </span><span class="annot"><span class="annottext">CompressionMethod
+</span><span class="hs-identifier hs-var">Deflate</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; ByteString
+</span><span class="hs-identifier hs-var">BC.pack</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; ByteString) -&gt; String -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; GeoBounds -&gt; String
+</span><a href="Graphics.Heatmap.KML.html#kmlStr"><span class="hs-identifier hs-var">kmlStr</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;heatmap.png&quot;</span></span><span> </span><span class="annot"><span class="annottext">GeoBounds
+</span><a href="#local-6989586621679365581"><span class="hs-identifier hs-var">bounds</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(EntrySelector -&gt; ZipArchive ())
+-&gt; ZipArchive EntrySelector -&gt; ZipArchive ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ZipArchive EntrySelector
+forall (m :: * -&gt; *). MonadThrow m =&gt; String -&gt; m EntrySelector
+</span><span class="hs-identifier hs-var">mkEntrySelector</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;doc.kml&quot;</span></span><span>
+</span><span id="line-49"></span></pre></body></html>

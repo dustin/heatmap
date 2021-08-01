@@ -1,0 +1,283 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE FlexibleContexts       #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances      #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE FunctionalDependencies #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">{-|
+Module      : Graphics.Heatmap
+Description : Heatmap generation utilities.
+Copyright   : (c) Dustin Sallings, 2021
+License     : BSD3
+Maintainer  : dustin@spy.net
+Stability   : experimental
+
+Tools for generating heatmap images.
+-}</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Graphics.Heatmap</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.html#Point"><span class="hs-identifier">Point</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.html#mkDot"><span class="hs-identifier">mkDot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.html#genHeatmap"><span class="hs-identifier">genHeatmap</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.html#mkTranslator"><span class="hs-identifier">mkTranslator</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Codec.Picture</span></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Image</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PixelRGBA8</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">generateImage</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Map.Strict</span></span><span>        </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Graphics.Heatmap.Types.html"><span class="hs-identifier">Graphics.Heatmap.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.Types.html#Colorizer"><span class="hs-identifier">Colorizer</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier">Depth</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Linear.V2</span></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">V2</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Linear.Vector</span></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">zero</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- | A Point as used throughout this heatmap codebase is currently</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- limited to two dimensional vectors of natural numbers.</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">type</span><span> </span><span id="Point"><span class="annot"><a href="Graphics.Heatmap.html#Point"><span class="hs-identifier hs-var">Point</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">class</span><span> </span><span id="Projector"><span class="annot"><a href="Graphics.Heatmap.html#Projector"><span class="hs-identifier hs-var">Projector</span></a></span></span><span> </span><span id="local-6989586621679366097"><span class="annot"><a href="#local-6989586621679366097"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679366096"><span class="annot"><a href="#local-6989586621679366096"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="#local-6989586621679366097"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679366096"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-31"></span><span>  </span><span id="project"><span class="annot"><a href="Graphics.Heatmap.html#project"><span class="hs-identifier hs-type">project</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679366097"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679366096"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679366097"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span id="local-6989586621679366020"><span class="hs-keyword">instance</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621679366020"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621679366020"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Graphics.Heatmap.html#Projector"><span class="hs-identifier hs-type">Projector</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span class="annot"><a href="#local-6989586621679366020"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679366020"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>  </span><span id="local-6989586621679366017"><span class="annot"><span class="annottext">project :: V2 a -&gt; a -&gt; [V2 a]
+</span><a href="#local-6989586621679366017"><span class="hs-identifier hs-var hs-var hs-var hs-var">project</span></a></span></span><span> </span><span id="local-6989586621679366016"><span class="annot"><span class="annottext">V2 a
+</span><a href="#local-6989586621679366016"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span id="local-6989586621679366015"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679366015"><span class="hs-identifier hs-var">size</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; V2 a
+forall a. a -&gt; a -&gt; V2 a
+</span><span class="hs-identifier hs-var">V2</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679366013"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679366012"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">V2 a -&gt; V2 a -&gt; V2 a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">V2 a
+</span><a href="#local-6989586621679366016"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679366013"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679366013"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679366015"><span class="hs-identifier hs-var">size</span></a></span><span> </span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679366012"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679366012"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679366015"><span class="hs-identifier hs-var">size</span></a></span><span> </span><span class="hs-special">]</span><span class="hs-special">]</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- mkDot can be more generic, but we don't have a great use case for</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- things other than V2 right now.</span><span>
+</span><span id="line-38"></span><span class="hs-comment">--</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- mkDot :: (Each a a Int Int, Projector a Int, Num a) =&gt;  a -&gt; Int -&gt; [(a, Depth)]</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- | Make a dot of a given size indicating presence that should begin</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- heating the map.</span><span>
+</span><span id="line-43"></span><span class="annot"><a href="Graphics.Heatmap.html#mkDot"><span class="hs-identifier hs-type">mkDot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Graphics.Heatmap.html#Point"><span class="hs-identifier hs-type">Point</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.html#Point"><span class="hs-identifier hs-type">Point</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-type">Depth</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-44"></span><span id="mkDot"><span class="annot"><span class="annottext">mkDot :: Point -&gt; Natural -&gt; [(Point, Depth)]
+</span><a href="Graphics.Heatmap.html#mkDot"><span class="hs-identifier hs-var hs-var">mkDot</span></a></span></span><span> </span><span id="local-6989586621679366010"><span class="annot"><span class="annottext">Point
+</span><a href="#local-6989586621679366010"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span id="local-6989586621679366009"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679366009"><span class="hs-identifier hs-var">size</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">(Point, Depth)
+</span><a href="#local-6989586621679366008"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679366007"><span class="annot"><span class="annottext">Point
+</span><a href="#local-6989586621679366007"><span class="hs-identifier hs-var">p2</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Point -&gt; Natural -&gt; [Point]
+forall a b. Projector a b =&gt; a -&gt; b -&gt; [a]
+</span><a href="Graphics.Heatmap.html#project"><span class="hs-identifier hs-var">project</span></a></span><span> </span><span class="annot"><span class="annottext">Point
+forall (f :: * -&gt; *) a. (Additive f, Num a) =&gt; f a
+</span><span class="hs-identifier hs-var">zero</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679366009"><span class="hs-identifier hs-var">size</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-45"></span><span>                 </span><span id="local-6989586621679366008"><span class="annot"><span class="annottext">(Point, Depth)
+</span><a href="#local-6989586621679366008"><span class="hs-identifier hs-var">d</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Point -&gt; Double -&gt; [(Point, Depth)]
+forall b a. (Bounded b, Integral b) =&gt; a -&gt; Double -&gt; [(a, b)]
+</span><a href="#local-6989586621679366006"><span class="hs-identifier hs-var">depthAt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Point
+</span><a href="#local-6989586621679366010"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Point -&gt; Point -&gt; Point
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Point
+</span><a href="#local-6989586621679366007"><span class="hs-identifier hs-var">p2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Point -&gt; Double
+</span><a href="#local-6989586621679366005"><span class="hs-identifier hs-var">distance</span></a></span><span> </span><span class="annot"><span class="annottext">Point
+</span><a href="#local-6989586621679366007"><span class="hs-identifier hs-var">p2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">]</span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621679366004"><span class="annot"><span class="annottext">edge :: Point
+</span><a href="#local-6989586621679366004"><span class="hs-identifier hs-var hs-var">edge</span></a></span></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Point
+</span><a href="#local-6989586621679366010"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Point -&gt; (Point -&gt; Point) -&gt; Point
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; Identity Natural) -&gt; Point -&gt; Identity Point
+forall s t a b. Each s t a b =&gt; Traversal s t a b
+</span><span class="hs-identifier hs-var">each</span></span><span> </span><span class="annot"><span class="annottext">((Natural -&gt; Identity Natural) -&gt; Point -&gt; Identity Point)
+-&gt; Natural -&gt; Point -&gt; Point
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679366009"><span class="hs-identifier hs-var">size</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span id="local-6989586621679366000"><span class="annot"><span class="annottext">middle :: Double
+</span><a href="#local-6989586621679366000"><span class="hs-identifier hs-var hs-var">middle</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Point -&gt; Double
+</span><a href="#local-6989586621679366005"><span class="hs-identifier hs-var">distance</span></a></span><span> </span><span class="annot"><span class="annottext">Point
+</span><a href="#local-6989586621679366004"><span class="hs-identifier hs-var">edge</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-49"></span><span>    </span><span id="local-6989586621679366005"><span class="annot"><span class="annottext">distance :: Point -&gt; Double
+</span><a href="#local-6989586621679366005"><span class="hs-identifier hs-var hs-var">distance</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double
+forall a. Floating a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">sqrt</span></span><span> </span><span class="annot"><span class="annottext">(Double -&gt; Double) -&gt; (Point -&gt; Double) -&gt; Point -&gt; Double
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Getting (Endo (Endo Double)) Point Double -&gt; Point -&gt; Double
+forall a s. Num a =&gt; Getting (Endo (Endo a)) s a -&gt; s -&gt; a
+</span><span class="hs-identifier hs-var">sumOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Natural -&gt; Const (Endo (Endo Double)) Natural)
+-&gt; Point -&gt; Const (Endo (Endo Double)) Point
+forall s t a b. Each s t a b =&gt; Traversal s t a b
+</span><span class="hs-identifier hs-var">each</span></span><span> </span><span class="annot"><span class="annottext">((Natural -&gt; Const (Endo (Endo Double)) Natural)
+ -&gt; Point -&gt; Const (Endo (Endo Double)) Point)
+-&gt; ((Double -&gt; Const (Endo (Endo Double)) Double)
+    -&gt; Natural -&gt; Const (Endo (Endo Double)) Natural)
+-&gt; Getting (Endo (Endo Double)) Point Double
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; Double)
+-&gt; (Double -&gt; Const (Endo (Endo Double)) Double)
+-&gt; Natural
+-&gt; Const (Endo (Endo Double)) Natural
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Double
+forall a a. (Fractional a, Integral a) =&gt; a -&gt; a
+</span><a href="#local-6989586621679365994"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>      </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679365994"><span class="annot"><span class="annottext">f :: a -&gt; a
+</span><a href="#local-6989586621679365994"><span class="hs-identifier hs-var hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679365993"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365993"><span class="hs-identifier hs-var">off</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; a
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365993"><span class="hs-identifier hs-var">off</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; a
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679366009"><span class="hs-identifier hs-var">size</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">2</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; Integer -&gt; a
+forall a b. (Fractional a, Integral b) =&gt; a -&gt; b -&gt; a
+</span><span class="hs-operator hs-var">^^</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-51"></span><span>    </span><span id="local-6989586621679366006"><span class="annot"><span class="annottext">depthAt :: a -&gt; Double -&gt; [(a, b)]
+</span><a href="#local-6989586621679366006"><span class="hs-identifier hs-var hs-var">depthAt</span></a></span></span><span> </span><span id="local-6989586621679365991"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365991"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679365990"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365990"><span class="hs-identifier hs-var">d</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365991"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">b
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">maxBound</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; b -&gt; b
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; b
+forall a b. (RealFrac a, Integral b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">round</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">200</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365990"><span class="hs-identifier hs-var">d</span></a></span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679366000"><span class="hs-identifier hs-var">middle</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">50</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679365990"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679366000"><span class="hs-identifier hs-var">middle</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- | Generate a heatmap image using a Colorizer and a collection of points and depths.</span><span>
+</span><span id="line-54"></span><span class="annot"><a href="Graphics.Heatmap.html#genHeatmap"><span class="hs-identifier hs-type">genHeatmap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Colorizer"><span class="hs-identifier hs-type">Colorizer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Graphics.Heatmap.html#Point"><span class="hs-identifier hs-type">Point</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Graphics.Heatmap.Types.html#Depth"><span class="hs-identifier hs-type">Depth</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Image</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PixelRGBA8</span></span><span>
+</span><span id="line-55"></span><span id="genHeatmap"><span class="annot"><span class="annottext">genHeatmap :: (Natural, Natural)
+-&gt; Colorizer -&gt; [(Point, Depth)] -&gt; Image PixelRGBA8
+</span><a href="Graphics.Heatmap.html#genHeatmap"><span class="hs-identifier hs-var hs-var">genHeatmap</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679365985"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365985"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679365984"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365984"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679365983"><span class="annot"><span class="annottext">Colorizer
+</span><a href="#local-6989586621679365983"><span class="hs-identifier hs-var">colorizer</span></a></span></span><span> </span><span id="local-6989586621679365982"><span class="annot"><span class="annottext">[(Point, Depth)]
+</span><a href="#local-6989586621679365982"><span class="hs-identifier hs-var">points</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Int -&gt; PixelRGBA8) -&gt; Int -&gt; Int -&gt; Image PixelRGBA8
+forall px. Pixel px =&gt; (Int -&gt; Int -&gt; px) -&gt; Int -&gt; Int -&gt; Image px
+</span><span class="hs-identifier hs-var">generateImage</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; PixelRGBA8
+forall a a. (Integral a, Integral a) =&gt; a -&gt; a -&gt; PixelRGBA8
+</span><a href="#local-6989586621679365981"><span class="hs-identifier hs-var">pf</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365985"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365984"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-57"></span><span>    </span><span id="local-6989586621679365980"><span class="annot"><span class="annottext">m :: Map Point Depth
+</span><a href="#local-6989586621679365980"><span class="hs-identifier hs-var hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Depth -&gt; Depth -&gt; Depth) -&gt; [(Point, Depth)] -&gt; Map Point Depth
+forall k a. Ord k =&gt; (a -&gt; a -&gt; a) -&gt; [(k, a)] -&gt; Map k a
+</span><span class="hs-identifier hs-var">Map.fromListWith</span></span><span> </span><span class="annot"><span class="annottext">Depth -&gt; Depth -&gt; Depth
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&lt;&gt;)</span></span><span> </span><span class="annot"><span class="annottext">[(Point, Depth)]
+</span><a href="#local-6989586621679365982"><span class="hs-identifier hs-var">points</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span id="local-6989586621679365981"><span class="annot"><span class="annottext">pf :: a -&gt; a -&gt; PixelRGBA8
+</span><a href="#local-6989586621679365981"><span class="hs-identifier hs-var hs-var">pf</span></a></span></span><span> </span><span id="local-6989586621679365978"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365978"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679365977"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365977"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Colorizer
+</span><a href="#local-6989586621679365983"><span class="hs-identifier hs-var">colorizer</span></a></span><span> </span><span class="annot"><span class="annottext">Colorizer -&gt; Colorizer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Depth -&gt; Point -&gt; Map Point Depth -&gt; Depth
+forall k a. Ord k =&gt; a -&gt; k -&gt; Map k a -&gt; a
+</span><span class="hs-identifier hs-var">Map.findWithDefault</span></span><span> </span><span class="annot"><span class="annottext">Depth
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">minBound</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Point
+forall a. a -&gt; a -&gt; V2 a
+</span><span class="hs-identifier hs-var">V2</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Natural
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365978"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Natural
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365977"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Map Point Depth
+</span><a href="#local-6989586621679365980"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Make a scale translator that can translate points in an</span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- arbitrarily bounded two dimensional vector to our 2D vector with</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- Natural bounds we use when applying points.</span><span>
+</span><span id="line-63"></span><span id="local-6989586621679365974"><span class="annot"><a href="Graphics.Heatmap.html#mkTranslator"><span class="hs-identifier hs-type">mkTranslator</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RealFrac</span></span><span> </span><span class="annot"><a href="#local-6989586621679365974"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span class="annot"><a href="#local-6989586621679365974"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span class="annot"><a href="#local-6989586621679365974"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span class="annot"><a href="#local-6989586621679365974"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-64"></span><span id="mkTranslator"><span class="annot"><span class="annottext">mkTranslator :: (V2 a, V2 a) -&gt; (Point, Point) -&gt; V2 a -&gt; Point
+</span><a href="Graphics.Heatmap.html#mkTranslator"><span class="hs-identifier hs-var hs-var">mkTranslator</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span id="local-6989586621679365973"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365973"><span class="hs-identifier hs-var">inminx</span></a></span></span><span> </span><span id="local-6989586621679365972"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365972"><span class="hs-identifier hs-var">inminy</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span id="local-6989586621679365971"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365971"><span class="hs-identifier hs-var">inmaxx</span></a></span></span><span> </span><span id="local-6989586621679365970"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365970"><span class="hs-identifier hs-var">inmaxy</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span id="local-6989586621679365969"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365969"><span class="hs-identifier hs-var">outminx</span></a></span></span><span> </span><span id="local-6989586621679365968"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365968"><span class="hs-identifier hs-var">outminy</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span id="local-6989586621679365967"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365967"><span class="hs-identifier hs-var">outmaxx</span></a></span></span><span> </span><span id="local-6989586621679365966"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365966"><span class="hs-identifier hs-var">outmaxy</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">V2 a -&gt; Point
+</span><a href="#local-6989586621679365965"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-66"></span><span>    </span><span id="local-6989586621679365965"><span class="annot"><span class="annottext">t :: V2 a -&gt; Point
+</span><a href="#local-6989586621679365965"><span class="hs-identifier hs-var hs-var">t</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V2</span></span><span> </span><span id="local-6989586621679365964"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365964"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679365963"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365963"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Point
+forall a. a -&gt; a -&gt; V2 a
+</span><span class="hs-identifier hs-var">V2</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; a -&gt; a -&gt; Natural -&gt; Natural -&gt; Natural
+forall a a. (RealFrac a, Integral a) =&gt; a -&gt; a -&gt; a -&gt; a -&gt; a -&gt; a
+</span><a href="#local-6989586621679365962"><span class="hs-identifier hs-var">trans</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365964"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365973"><span class="hs-identifier hs-var">inminx</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365971"><span class="hs-identifier hs-var">inmaxx</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365969"><span class="hs-identifier hs-var">outminx</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365967"><span class="hs-identifier hs-var">outmaxx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; a -&gt; a -&gt; Natural -&gt; Natural -&gt; Natural
+forall a a. (RealFrac a, Integral a) =&gt; a -&gt; a -&gt; a -&gt; a -&gt; a -&gt; a
+</span><a href="#local-6989586621679365962"><span class="hs-identifier hs-var">trans</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365963"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365972"><span class="hs-identifier hs-var">inminy</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365970"><span class="hs-identifier hs-var">inmaxy</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365968"><span class="hs-identifier hs-var">outminy</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679365966"><span class="hs-identifier hs-var">outmaxy</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>    </span><span id="local-6989586621679365962"><span class="annot"><span class="annottext">trans :: a -&gt; a -&gt; a -&gt; a -&gt; a -&gt; a
+</span><a href="#local-6989586621679365962"><span class="hs-identifier hs-var hs-var">trans</span></a></span></span><span> </span><span id="local-6989586621679365961"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365961"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621679365960"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365960"><span class="hs-identifier hs-var">il</span></a></span></span><span> </span><span id="local-6989586621679365959"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365959"><span class="hs-identifier hs-var">ih</span></a></span></span><span> </span><span id="local-6989586621679365958"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365958"><span class="hs-identifier hs-var">ol</span></a></span></span><span> </span><span id="local-6989586621679365957"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365957"><span class="hs-identifier hs-var">oh</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365958"><span class="hs-identifier hs-var">ol</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a b. (RealFrac a, Integral b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">round</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365961"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365960"><span class="hs-identifier hs-var">il</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365957"><span class="hs-identifier hs-var">oh</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365958"><span class="hs-identifier hs-var">ol</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365959"><span class="hs-identifier hs-var">ih</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679365960"><span class="hs-identifier hs-var">il</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span></pre></body></html>
