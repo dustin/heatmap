@@ -1,6 +1,17 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications           #-}
 
+{-|
+Module      : Graphics.Heatmap.Types
+Description : Heatmap types.
+Copyright   : (c) Dustin Sallings, 2021
+License     : BSD3
+Maintainer  : dustin@spy.net
+Stability   : experimental
+
+Heatmap types.
+-}
+
 module Graphics.Heatmap.Types (Colorizer, ColorScheme, Depth(..), alphaColorizer, schemeColorizer) where
 
 import           Codec.Picture (PixelRGB8 (..), PixelRGBA8 (..))

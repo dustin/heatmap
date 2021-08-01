@@ -2,6 +2,17 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
+{-|
+Module      : Graphics.Heatmap
+Description : Heatmap generation utilities.
+Copyright   : (c) Dustin Sallings, 2021
+License     : BSD3
+Maintainer  : dustin@spy.net
+Stability   : experimental
+
+Tools for generating heatmap images.
+-}
+
 module Graphics.Heatmap (Point, mkDot, genHeatmap, mkTranslator) where
 
 import           Codec.Picture          (Image (..), PixelRGBA8 (..), generateImage)

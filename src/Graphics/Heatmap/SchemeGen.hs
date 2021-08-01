@@ -1,4 +1,15 @@
-module Graphics.Heatmap.SchemeGen where
+{-|
+Module      : Graphics.Heatmap.SchemeGen
+Description : Generate heatmaps from PNGs using TemplateHaskell.
+Copyright   : (c) Dustin Sallings, 2021
+License     : BSD3
+Maintainer  : dustin@spy.net
+Stability   : experimental
+
+Generate heatmaps from PNGs using TemplateHaskell.
+-}
+
+module Graphics.Heatmap.SchemeGen (genScheme, genSchemes) where
 
 import           Codec.Picture          (Image (..), PixelRGBA8 (..), convertRGBA8, imageHeight, pixelAt, readImage)
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -7,7 +18,7 @@ import           Language.Haskell.TH
 import           System.Directory       (listDirectory)
 import           System.FilePath.Posix  (splitExtension, (</>))
 
--- Generate a color scheme
+-- | Generate a color scheme from a PNG on the filesystem.
 genScheme :: String -> FilePath -> Q [Dec]
 genScheme name fp = runIO $ do
   i <- fmap convertRGBA8 <$> readImage fp
@@ -34,6 +45,11 @@ findSchemes fp = mapMaybe identify <$> listDirectory fp
 cmapM :: (Monoid b, Applicative f) => (a -> f b) -> [a] -> f b
 cmapM f xs = mconcat <$> traverse f xs
 
+-- | Generate color schemes for all PNGs found within a given directory.
+--
+-- Each scheme is named after the basename of the png that's found.
+-- Additionally, a list of all the generated schemes named
+-- 'allSchemes' will be generated.
 genSchemes :: FilePath -> Q [Dec]
 genSchemes fp = do
   schemeFiles <- liftIO (findSchemes fp)
